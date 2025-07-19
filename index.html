@@ -68,9 +68,30 @@
   <script>
     const SPREADSHEET_ID = '1TowJS-Jm8i3lxhNwd1V5noBGfY_C7b96x7Jc8NqzoDY';
     const RANGE = 'A1';
-    let pollInterval = 5000; // 5 seconds
+    const BASE_POLL_INTERVAL = 5000; // 5 seconds base interval
+    const MAX_BACKOFF = 32000; // 32 seconds maximum backoff
+    let retryCount = 0;
     let lastValue = null;
     let bigCelebrationDone = false;
+
+    // Helper function to generate random jitter
+    function getRandomJitter(maxMs = 1000) {
+      return Math.floor(Math.random() * maxMs);
+    }
+
+    // Helper function to add jitter to standard polling interval
+    function getPollIntervalWithJitter() {
+      const jitter = getRandomJitter(400); // 0-400ms jitter
+      return BASE_POLL_INTERVAL + jitter;
+    }
+
+    // Exponential backoff with jitter for retries
+    function getRetryDelay() {
+      const baseDelay = Math.pow(2, retryCount) * 1000; // 2^n seconds
+      const jitter = getRandomJitter(1000); // 0-1000ms jitter
+      const totalDelay = baseDelay + jitter;
+      return Math.min(totalDelay, MAX_BACKOFF);
+    }
 
     async function fetchAndUpdate() {
       const params = new URLSearchParams(window.location.search);
@@ -130,12 +151,18 @@
             lastValue = value;
         }
         
-        pollInterval = 5000; // Reset interval on success
+        // Reset retry count on success and use standard polling with jitter
+        retryCount = 0;
+        const pollInterval = getPollIntervalWithJitter();
+        setTimeout(fetchAndUpdate, pollInterval);
       } catch (error) {
         console.error(error);
-        pollInterval += 5000; // Increase interval on failure
-      } finally {
-        setTimeout(fetchAndUpdate, pollInterval);
+        
+        // Increment retry count and use exponential backoff with jitter
+        retryCount++;
+        const retryDelay = getRetryDelay();
+        console.log(`Retry attempt ${retryCount} in ${retryDelay}ms`);
+        setTimeout(fetchAndUpdate, retryDelay);
       }
     }
 
