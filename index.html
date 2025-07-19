@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Sheet Cell Viewer</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f0f0f0;
+    }
+    #container {
+      text-align: center;
+      padding: 2em;
+      border-radius: 8px;
+      background-color: white;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    #cell-value {
+      font-size: 4em;
+      font-weight: bold;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@tsparticles/confetti@3.0.3/tsparticles.confetti.bundle.min.js"></script>
+</head>
+<body>
+  <div id="container">
+    <div id="cell-value">Loading...</div>
+  </div>
+
+  <script>
+    const SPREADSHEET_ID = '1TowJS-Jm8i3lxhNwd1V5noBGfY_C7b96x7Jc8NqzoDY';
+    const RANGE = 'A1';
+
+    async function main() {
+      const params = new URLSearchParams(window.location.search);
+      const apiKey = params.get('apiKey');
+      const smallCelebrationCount = params.get('smallCelebrationCount');
+      const bigCelebrationCount = params.get('bigCelebrationCount') || 10000;
+
+      if (!apiKey) {
+        document.getElementById('cell-value').textContent = 'Error: apiKey query param is required.';
+        return;
+      }
+
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${apiKey}`;
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Google Sheets API error: ${response.statusText}`);
+        }
+        const data = await response.json();
+        const value = data.values[0][0];
+        const numericValue = parseInt(value.replace(/,/g, ''), 10);
+
+        document.getElementById('cell-value').textContent = value;
+
+        if (smallCelebrationCount && numericValue % parseInt(smallCelebrationCount, 10) === 0) {
+          smallCelebration();
+        }
+        if (numericValue % parseInt(bigCelebrationCount, 10) === 0) {
+          bigCelebration();
+        }
+      } catch (error) {
+        document.getElementById('cell-value').textContent = `Error: ${error.message}`;
+        console.error(error);
+      }
+    }
+
+    function smallCelebration() {
+      const defaults = {
+        spread: 360,
+        ticks: 50,
+        gravity: 0,
+        decay: 0.94,
+        startVelocity: 30,
+        shapes: ["star"],
+        colors: ["FFE400", "FFBD00", "E89400", "FFCA6C", "FDFFB8"],
+      };
+
+      confetti({
+        ...defaults,
+        particleCount: 40,
+        scalar: 1.2,
+        shapes: ["star"],
+      });
+
+      confetti({
+        ...defaults,
+        particleCount: 10,
+        scalar: 0.75,
+        shapes: ["circle"],
+      });
+    }
+
+    function bigCelebration() {
+        const duration = 15 * 1000,
+        animationEnd = Date.now() + duration,
+        defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+      function randomInRange(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      const interval = setInterval(function() {
+        const timeLeft = animationEnd - Date.now();
+
+        if (timeLeft <= 0) {
+          return clearInterval(interval);
+        }
+
+        const particleCount = 50 * (timeLeft / duration);
+
+        confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+        confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+      }, 250);
+    }
+
+    main();
+  </script>
+</body>
+</html>
