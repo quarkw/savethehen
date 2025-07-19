@@ -4,10 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" href="favicon.png">
-  <title>Save The Hen Signatures</title>
+  <title>SAVE THE HEN</title>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: "Stint Ultra Expanded", serif;
+      font-weight: 400;
+      font-style: normal;
+      font-size: 16px;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -23,9 +26,11 @@
       background-color: transparent;
       box-shadow: none;
     }
-    #cell-value {
-      font-size: 4em;
-      font-weight: bold;
+    #count {
+      font-family: "Smokum", serif;
+      font-weight: 400;
+      font-style: normal;
+      font-size: 8em;
     }
     header {
       margin-bottom: 1em;
@@ -41,7 +46,8 @@
     header img {
         max-width: 100%;
         height: auto;
-        max-height: 150px;
+        min-height: 150px;
+        max-height: 300px;
     }
     @keyframes value-change {
       0% { transform: scale(1); }
@@ -52,6 +58,10 @@
       animation: value-change 0.3s ease-in-out;
     }
   </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Stint+Ultra+Expanded&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Smokum&family=Stint+Ultra+Expanded&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@tsparticles/fireworks@3.8.1/tsparticles.fireworks.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tsparticles/confetti@3.8.1/tsparticles.confetti.bundle.min.js"></script>
 </head>
@@ -60,9 +70,9 @@
   <div id="container">
     <header>
         <img src="images/NEW+LOGO+NO+YEAR+fnqc2.png" alt="Logo">
-        <h1 id="title">Save The Hen Signatures</h1>
+        <h1 id="title">SAVE THE HEN</h1>
     </header>
-    <div id="cell-value">Loading...</div>
+    <div id="count">Loading...</div>
   </div>
 
   <script>
@@ -134,7 +144,7 @@
         const value = parseInt(data.values[0][0].replace(/,/g, ''), 10);
 
         if (lastValue !== value) {
-            const cellValueElement = document.getElementById('cell-value');
+            const cellValueElement = document.getElementById('count');
             cellValueElement.textContent = value + " " + countAffix;
             cellValueElement.classList.add('animate-value-change');
             setTimeout(() => {
