@@ -19,6 +19,10 @@
       background-color: #20201F;
       color: #f5f5f5;
     }
+    #title {
+      font-size: 4em;
+      margin: 0;
+    }
     #container {
       text-align: center;
       padding: 2em;
@@ -115,12 +119,22 @@
       const pollIntervalSeconds = Math.max(1, parseInt(params.get('pollInterval') || 5, 10));
       basePollInterval = pollIntervalSeconds * 1000; // Convert seconds to milliseconds
 
-      if (params.has('title')) {
+      // Handle title visibility and content
+      const showTitle = params.get('showTitle');
+      const titleElement = document.getElementById('title');
+      
+      if (showTitle === 'true' || showTitle === '1') {
+        // Show title if showTitle is explicitly set to true
+        titleElement.style.display = 'block';
         if (title && title !== '') {
-            document.getElementById('title').textContent = title;
-            document.title = title;
-        } else {
-            document.getElementById('title').style.display = 'none';
+          titleElement.textContent = title;
+          document.title = title;
+        }
+      } else {
+        // Hide title by default or if showTitle is explicitly false
+        titleElement.style.display = 'none';
+        if (title && title !== '') {
+          document.title = title; // Still set the page title even if not displayed
         }
       }
 
