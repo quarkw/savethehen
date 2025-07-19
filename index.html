@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Google Sheet Cell Viewer</title>
+  <title>Save The Hen Signatures</title>
   <style>
     body {
       font-family: sans-serif;
@@ -12,39 +12,70 @@
       align-items: center;
       height: 100vh;
       margin: 0;
-      background-color: #f0f0f0;
+      background-color: #20201F;
+      color: #f5f5f5;
     }
     #container {
       text-align: center;
       padding: 2em;
       border-radius: 8px;
-      background-color: white;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      background-color: transparent;
+      box-shadow: none;
     }
     #cell-value {
       font-size: 4em;
       font-weight: bold;
+    }
+    header {
+      margin-bottom: 1em;
+    }
+    header img {
+        max-width: 100%;
+        height: auto;
+        max-height: 150px;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@tsparticles/confetti@3.0.3/tsparticles.confetti.bundle.min.js"></script>
 </head>
 <body>
   <div id="container">
+    <header>
+        <img src="images/NEW+LOGO+NO+YEAR+fnqc2.png" alt="Logo">
+        <h1 id="title">Save The Hen Signatures</h1>
+    </header>
     <div id="cell-value">Loading...</div>
   </div>
 
   <script>
     const SPREADSHEET_ID = '1TowJS-Jm8i3lxhNwd1V5noBGfY_C7b96x7Jc8NqzoDY';
     const RANGE = 'A1';
+    let pollInterval = 5000; // 5 seconds
+    let lastValue = null;
+    let bigCelebrationDone = false;
 
-    async function main() {
+    async function fetchAndUpdate() {
       const params = new URLSearchParams(window.location.search);
       const apiKey = params.get('apiKey');
-      const smallCelebrationCount = params.get('smallCelebrationCount');
+      const smallCelebrationInterval = params.get('smallCelebrationInterval');
       const bigCelebrationCount = params.get('bigCelebrationCount') || 10000;
+      const title = params.get('title');
+      const countAffix = params.get('countAffix') || '';
+
+      if (params.has('title')) {
+        if (title && title !== '') {
+            document.getElementById('title').textContent = title;
+            document.title = title;
+        } else {
+            document.getElementById('title').style.display = 'none';
+        }
+      }
 
       if (!apiKey) {
-        document.getElementById('cell-value').textContent = 'Error: apiKey query param is required.';
+        // Don't show error to user, but stop trying.
+        if (document.getElementById('cell-value').textContent === 'Loading...') {
+            document.getElementById('cell-value').textContent = 'Error';
+        }
+        console.error('apiKey query param is required.');
         return;
       }
 
@@ -59,44 +90,80 @@
         const value = data.values[0][0];
         const numericValue = parseInt(value.replace(/,/g, ''), 10);
 
-        document.getElementById('cell-value').textContent = value;
+        if (lastValue !== value) {
+            document.getElementById('cell-value').textContent = value + countAffix;
 
-        if (smallCelebrationCount && numericValue % parseInt(smallCelebrationCount, 10) === 0) {
-          smallCelebration();
+            if (lastValue !== null) { // Don't celebrate on first load for small celebration
+                if (smallCelebrationInterval && numericValue / parseInt(smallCelebrationInterval, 10) > lastValue / parseInt(smallCelebrationInterval, 10)) {
+                    smallCelebration();
+                }
+            }
+            
+            if (!bigCelebrationDone && numericValue >= parseInt(bigCelebrationCount, 10)) {
+                bigCelebration();
+                bigCelebrationDone = true;
+            }
+
+            lastValue = numericValue;
         }
-        if (numericValue % parseInt(bigCelebrationCount, 10) === 0) {
-          bigCelebration();
-        }
+        
+        pollInterval = 5000; // Reset interval on success
       } catch (error) {
-        document.getElementById('cell-value').textContent = `Error: ${error.message}`;
         console.error(error);
+        pollInterval += 5000; // Increase interval on failure
+      } finally {
+        setTimeout(fetchAndUpdate, pollInterval);
       }
     }
 
     function smallCelebration() {
       const defaults = {
         spread: 360,
-        ticks: 50,
+        ticks: 100,
         gravity: 0,
         decay: 0.94,
         startVelocity: 30,
-        shapes: ["star"],
-        colors: ["FFE400", "FFBD00", "E89400", "FFCA6C", "FDFFB8"],
       };
 
-      confetti({
-        ...defaults,
-        particleCount: 40,
-        scalar: 1.2,
-        shapes: ["star"],
-      });
+      function shoot() {
+        confetti({
+          ...defaults,
+          particleCount: 30,
+          scalar: 1.2,
+          shapes: ["circle", "square"],
+          colors: ["#a864fd", "#29cdff", "#78ff44", "#ff718d", "#fdff6a"],
+        });
 
-      confetti({
-        ...defaults,
-        particleCount: 10,
-        scalar: 0.75,
-        shapes: ["circle"],
-      });
+        confetti({
+          ...defaults,
+          particleCount: 10,
+          decay: .98,
+          scalar: 10,
+          shapes: [
+            // "emoji",
+            "image"
+          ],
+          shapeOptions: {
+            // emoji: {
+            //   value: ["🐔", "🐣"],
+            // },
+            image: [{
+              src: "images/hen-coin.png",
+              width: 32,
+              height: 32,
+            },
+            {
+              src: "images/emoji-chicken.png",
+              width: 32,
+              height: 32,
+            }]
+          },
+        });
+      }
+
+      setTimeout(shoot, 0);
+      setTimeout(shoot, 100);
+      setTimeout(shoot, 200);
     }
 
     function bigCelebration() {
@@ -122,7 +189,7 @@
       }, 250);
     }
 
-    main();
+    fetchAndUpdate();
   </script>
 </body>
 </html>
