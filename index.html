@@ -109,7 +109,7 @@
 
     async function fetchAndUpdate() {
       const params = new URLSearchParams(window.location.search);
-      const apiKey = params.get('apiKey');
+      const apiKey = params.get('apiKey') || 'AIzaSyAq49mKWZg1W4wtsxoTvCIxyP9qkyZzji4';
       const smallCelebrationInterval = params.get('smallCelebrationInterval');
       const bigCelebrationCount = params.get('bigCelebrationCount') || 10000;
       const title = params.get('title');
