@@ -77,7 +77,7 @@
         <img src="images/NEW+LOGO+NO+YEAR+fnqc2.png" alt="Logo">
     </header>
     <div id="count">Loading...</div>
-    <h1 id="title">SAVE THE HEN</h1>
+    <h1 id="title">SIGNATURES TO SAVE THE HEN</h1>
   </div>
 
   <script>
@@ -121,7 +121,7 @@
       basePollInterval = pollIntervalSeconds * 1000; // Convert seconds to milliseconds
 
       // Handle title visibility and content
-      const showTitle = params.get('showTitle');
+      const showTitle = params.get('showTitle') || 'true';
       const titleElement = document.getElementById('title');
       
       if (showTitle === 'true' || showTitle === '1') {
