@@ -68,11 +68,11 @@
   <script>
     const SPREADSHEET_ID = '1TowJS-Jm8i3lxhNwd1V5noBGfY_C7b96x7Jc8NqzoDY';
     const RANGE = 'A1';
-    const BASE_POLL_INTERVAL = 5000; // 5 seconds base interval
     const MAX_BACKOFF = 32000; // 32 seconds maximum backoff
     let retryCount = 0;
     let lastValue = null;
     let bigCelebrationDone = false;
+    let basePollInterval = 5000; // Will be set from query param
 
     // Helper function to generate random jitter
     function getRandomJitter(maxMs = 1000) {
@@ -82,7 +82,7 @@
     // Helper function to add jitter to standard polling interval
     function getPollIntervalWithJitter() {
       const jitter = getRandomJitter(400); // 0-400ms jitter
-      return BASE_POLL_INTERVAL + jitter;
+      return basePollInterval + jitter;
     }
 
     // Exponential backoff with jitter for retries
@@ -100,6 +100,10 @@
       const bigCelebrationCount = params.get('bigCelebrationCount') || 10000;
       const title = params.get('title');
       const countAffix = params.get('countAffix') || '';
+      
+      // Set base poll interval from query param (defaults to 5 seconds, minimum 1 second)
+      const pollIntervalSeconds = Math.max(1, parseInt(params.get('pollInterval') || 5, 10));
+      basePollInterval = pollIntervalSeconds * 1000; // Convert seconds to milliseconds
 
       if (params.has('title')) {
         if (title && title !== '') {
