@@ -86,7 +86,7 @@
     let retryCount = 0;
     let lastValue = null;
     let bigCelebrationDone = false;
-    let basePollInterval = 5000; // Will be set from query param
+    let basePollInterval = 60000; // Will be set from query param
 
     // Helper function to generate random jitter
     function getRandomJitter(maxMs = 1000) {
@@ -116,7 +116,7 @@
       const countAffix = params.get('countAffix') || '';
       
       // Set base poll interval from query param (defaults to 5 seconds, minimum 1 second)
-      const pollIntervalSeconds = Math.max(1, parseInt(params.get('pollInterval') || 5, 10));
+      const pollIntervalSeconds = Math.max(1, parseInt(params.get('pollInterval') || basePollInterval / 1000, 10));
       basePollInterval = pollIntervalSeconds * 1000; // Convert seconds to milliseconds
 
       // Handle title visibility and content
