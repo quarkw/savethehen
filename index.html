@@ -248,6 +248,16 @@
     function bigCelebration() {
       (async () => {
         await fireworks.create(document.getElementById("tsparticles"));
+        
+        // Call smallCelebration every 5 seconds
+        const interval = setInterval(() => {
+          smallCelebration();
+        }, 5000);
+
+        // Clear interval after 30 seconds to stop the celebrations
+        setTimeout(() => {
+          clearInterval(interval);
+        }, 30000);
       })();
     }
 
