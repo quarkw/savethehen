@@ -42,6 +42,14 @@
         height: auto;
         max-height: 150px;
     }
+    @keyframes value-change {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    .animate-value-change {
+      animation: value-change 0.3s ease-in-out;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@tsparticles/fireworks@3.8.1/tsparticles.fireworks.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tsparticles/confetti@3.8.1/tsparticles.confetti.bundle.min.js"></script>
@@ -97,24 +105,28 @@
           throw new Error(`Google Sheets API error: ${response.statusText}`);
         }
         const data = await response.json();
-        const value = data.values[0][0];
-        const numericValue = parseInt(value.replace(/,/g, ''), 10);
+        const value = parseInt(data.values[0][0].replace(/,/g, ''), 10);
 
         if (lastValue !== value) {
-            document.getElementById('cell-value').textContent = value + " " + countAffix;
+            const cellValueElement = document.getElementById('cell-value');
+            cellValueElement.textContent = value + " " + countAffix;
+            cellValueElement.classList.add('animate-value-change');
+            setTimeout(() => {
+                cellValueElement.classList.remove('animate-value-change');
+            }, 300);
 
             if (lastValue !== null) { // Don't celebrate on first load for small celebration
-                if (smallCelebrationInterval && numericValue / parseInt(smallCelebrationInterval, 10) > lastValue / parseInt(smallCelebrationInterval, 10)) {
+                if (smallCelebrationInterval && value / parseInt(smallCelebrationInterval, 10) > lastValue / parseInt(smallCelebrationInterval, 10)) {
                     smallCelebration();
                 }
             }
             
-            if (!bigCelebrationDone && numericValue >= parseInt(bigCelebrationCount, 10)) {
+            if (!bigCelebrationDone && value >= parseInt(bigCelebrationCount, 10)) {
                 bigCelebration();
                 bigCelebrationDone = true;
             }
 
-            lastValue = numericValue;
+            lastValue = value;
         }
         
         pollInterval = 5000; // Reset interval on success
