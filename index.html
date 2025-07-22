@@ -40,7 +40,21 @@
     header {
       margin-bottom: 1em;
     }
-    #tsparticles {
+    #confetti {
+      z-index: 1;
+    }
+    #fireworks {
+      z-index: -2;
+    }
+    .fade-out {
+      animation: fade-out 5s ease-in-out;
+    }
+    @keyframes fade-out {
+      0% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    .tsparticles {
+      pointer-events: none;
       position: fixed;
       top: 0;
       left: 0;
@@ -71,7 +85,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@tsparticles/confetti@3.8.1/tsparticles.confetti.bundle.min.js"></script>
 </head>
 <body>
-  <div id="tsparticles"></div>
+  <div id="confetti" class="tsparticles"></div>
+  <div id="fireworks" class="tsparticles"></div>
   <div id="container">
     <header>
         <img src="images/NEW+LOGO+NO+YEAR+fnqc2.png" alt="Logo">
@@ -111,8 +126,8 @@
     async function fetchAndUpdate() {
       const params = new URLSearchParams(window.location.search);
       const apiKey = params.get('apiKey') || 'AIzaSyAq49mKWZg1W4wtsxoTvCIxyP9qkyZzji4';
-      const smallCelebrationInterval = params.get('smallCelebrationInterval') || 100;
-      const bigCelebrationCount = params.get('bigCelebrationCount') || 10000;
+      const smallCelebrationInterval = parseInt(params.get('smallCelebrationInterval') || 100, 10);
+      const bigCelebrationCount = parseInt(params.get('bigCelebrationCount') || 10000, 10);
       const title = params.get('title');
       const countAffix = params.get('countAffix') || '';
       
@@ -167,12 +182,12 @@
             }, 300);
 
             if (lastValue !== null) { // Don't celebrate on first load for small celebration
-                if (smallCelebrationInterval && value / parseInt(smallCelebrationInterval, 10) > lastValue / parseInt(smallCelebrationInterval, 10)) {
+                if (smallCelebrationInterval && value / smallCelebrationInterval > lastValue / smallCelebrationInterval) {
                     smallCelebration();
                 }
             }
             
-            if (!bigCelebrationDone && value >= parseInt(bigCelebrationCount, 10)) {
+            if (!bigCelebrationDone && value >= bigCelebrationCount) {
                 bigCelebration();
                 bigCelebrationDone = true;
             }
@@ -195,7 +210,15 @@
       }
     }
 
+    let smallCelebrationLastFired = 0;
+    const smallCelebrationDebounce = 500;
+
     function smallCelebration() {
+      if (Date.now() - smallCelebrationLastFired < smallCelebrationDebounce) {
+        return;
+      }
+      smallCelebrationLastFired = Date.now();
+
       const defaults = {
         spread: 360,
         ticks: 100,
@@ -205,7 +228,7 @@
       };
 
       function shoot() {
-        confetti({
+        confetti("confetti", {
           ...defaults,
           particleCount: 30,
           scalar: 1.2,
@@ -213,11 +236,12 @@
           colors: ["#a864fd", "#29cdff", "#78ff44", "#ff718d", "#fdff6a"],
         });
 
-        confetti({
+        confetti("confetti", {
           ...defaults,
           particleCount: 10,
-          decay: .98,
+          decay: .95,
           scalar: 10,
+          // flat: true,
           shapes: [
             // "emoji",
             "image"
@@ -247,7 +271,11 @@
 
     function bigCelebration() {
       (async () => {
-        await fireworks.create(document.getElementById("tsparticles"));
+        let fireworksInstance = await fireworks.create(document.getElementById("fireworks"));
+        setTimeout(() => {
+          fireworksInstance.pause();
+        }, 10000);
+        smallCelebration();
         
         // Call smallCelebration every 5 seconds
         const interval = setInterval(() => {
@@ -257,6 +285,12 @@
         // Clear interval after 30 seconds to stop the celebrations
         setTimeout(() => {
           clearInterval(interval);
+          //Fade out the fireworks div over the course of 5 seconds
+          document.getElementById("fireworks").classList.add("fade-out");
+          setTimeout(() => {
+            fireworksInstance.stop();
+            document.getElementById("fireworks").classList.remove("fade-out");
+          }, 5000);
         }, 30000);
       })();
     }
