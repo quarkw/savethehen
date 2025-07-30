@@ -96,83 +96,40 @@
   </div>
 
   <script>
+    // --- Configuration ---
     const SPREADSHEET_ID = '1TowJS-Jm8i3lxhNwd1V5noBGfY_C7b96x7Jc8NqzoDY';
     const RANGE = 'A1';
-    const MAX_BACKOFF = 32000; // 32 seconds maximum backoff
-    let retryCount = 0;
+    const MAX_BACKOFF = 32000; // 32 seconds
+
+    // --- State ---
     let lastValue = null;
     let bigCelebrationDone = false;
-    let basePollInterval = 60000; // Will be set from query param
+    let serverRetryCount = 0;
+    let fallbackRetryCount = 0;
 
-    // Helper function to generate random jitter
+    // --- Query Parameters ---
+    const params = new URLSearchParams(window.location.search);
+    const serverPollInterval = Math.max(1000, parseInt(params.get('serverPollInterval') || 5000, 10));
+    const fallbackPollInterval = Math.max(1000, parseInt(params.get('fallbackPollInterval') || 60000, 10));
+    const apiKey = params.get('apiKey') || 'AIzaSyAq49mKWZg1W4wtsxoTvCIxyP9qkyZzji4'; // Fallback API key
+    const smallCelebrationInterval = parseInt(params.get('smallCelebrationInterval') || 100, 10);
+    const bigCelebrationCount = parseInt(params.get('bigCelebrationCount') || 10000, 10);
+    const title = params.get('title');
+    const countAffix = params.get('countAffix') || '';
+    const showTitle = params.get('showTitle') || 'true';
+
+    // --- Helper Functions ---
     function getRandomJitter(maxMs = 1000) {
       return Math.floor(Math.random() * maxMs);
     }
 
-    // Helper function to add jitter to standard polling interval
-    function getPollIntervalWithJitter() {
-      const jitter = getRandomJitter(400); // 0-400ms jitter
-      return basePollInterval + jitter;
+    function getRetryDelay(retryCount) {
+      const baseDelay = Math.pow(2, retryCount) * 1000;
+      const jitter = getRandomJitter(1000);
+      return Math.min(baseDelay + jitter, MAX_BACKOFF);
     }
 
-    // Exponential backoff with jitter for retries
-    function getRetryDelay() {
-      const baseDelay = Math.pow(2, retryCount) * 1000; // 2^n seconds
-      const jitter = getRandomJitter(1000); // 0-1000ms jitter
-      const totalDelay = baseDelay + jitter;
-      return Math.min(totalDelay, MAX_BACKOFF);
-    }
-
-    async function fetchAndUpdate() {
-      const params = new URLSearchParams(window.location.search);
-      const apiKey = params.get('apiKey') || 'AIzaSyAq49mKWZg1W4wtsxoTvCIxyP9qkyZzji4';
-      const smallCelebrationInterval = parseInt(params.get('smallCelebrationInterval') || 100, 10);
-      const bigCelebrationCount = parseInt(params.get('bigCelebrationCount') || 10000, 10);
-      const title = params.get('title');
-      const countAffix = params.get('countAffix') || '';
-      
-      // Set base poll interval from query param (defaults to 5 seconds, minimum 1 second)
-      const pollIntervalSeconds = Math.max(1, parseInt(params.get('pollInterval') || basePollInterval / 1000, 10));
-      basePollInterval = pollIntervalSeconds * 1000; // Convert seconds to milliseconds
-
-      // Handle title visibility and content
-      const showTitle = params.get('showTitle') || 'true';
-      const titleElement = document.getElementById('title');
-      
-      if (showTitle === 'true' || showTitle === '1') {
-        // Show title if showTitle is explicitly set to true
-        titleElement.style.display = 'block';
-        if (title && title !== '') {
-          titleElement.textContent = title;
-          document.title = title;
-        }
-      } else {
-        // Hide title by default or if showTitle is explicitly false
-        titleElement.style.display = 'none';
-        if (title && title !== '') {
-          document.title = title; // Still set the page title even if not displayed
-        }
-      }
-
-      if (!apiKey) {
-        // Don't show error to user, but stop trying.
-        if (document.getElementById('cell-value').textContent === 'Loading...') {
-            document.getElementById('cell-value').textContent = 'Error';
-        }
-        console.error('apiKey query param is required.');
-        return;
-      }
-
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${apiKey}`;
-
-      try {
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Google Sheets API error: ${response.statusText}`);
-        }
-        const data = await response.json();
-        const value = parseInt(data.values[0][0].replace(/,/g, ''), 10);
-
+    function updateDisplay(value) {
         if (lastValue !== value) {
             const cellValueElement = document.getElementById('count');
             cellValueElement.textContent = value + " " + countAffix;
@@ -181,7 +138,7 @@
                 cellValueElement.classList.remove('animate-value-change');
             }, 300);
 
-            if (lastValue !== null) { // Don't celebrate on first load for small celebration
+            if (lastValue !== null) { // Don't celebrate on first load
                 if (smallCelebrationInterval && value / smallCelebrationInterval > lastValue / smallCelebrationInterval) {
                     smallCelebration();
                 }
@@ -194,98 +151,97 @@
 
             lastValue = value;
         }
-        
-        // Reset retry count on success and use standard polling with jitter
-        retryCount = 0;
-        const pollInterval = getPollIntervalWithJitter();
-        setTimeout(fetchAndUpdate, pollInterval);
+    }
+
+    // --- Data Fetching ---
+    async function fetchFromServer() {
+      try {
+        const response = await fetch('/api/data');
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.statusText}`);
+        }
+        const data = await response.json();
+        updateDisplay(data.value);
+
+        // Reset retry count on success and poll again
+        serverRetryCount = 0;
+        setTimeout(fetchFromServer, serverPollInterval + getRandomJitter(400));
+
       } catch (error) {
-        console.error(error);
-        
-        // Increment retry count and use exponential backoff with jitter
-        retryCount++;
-        const retryDelay = getRetryDelay();
-        console.log(`Retry attempt ${retryCount} in ${retryDelay}ms`);
-        setTimeout(fetchAndUpdate, retryDelay);
+        console.error("Server fetch failed:", error.message, ". Falling back to Google Sheets API.");
+        serverRetryCount++;
+        // Immediately try fallback, then schedule next server attempt with backoff
+        fetchFromGoogleSheets();
+        setTimeout(fetchFromServer, getRetryDelay(serverRetryCount));
       }
+    }
+
+    async function fetchFromGoogleSheets() {
+      console.log("Attempting to fetch directly from Google Sheets...");
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${apiKey}`;
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Google Sheets API error: ${response.statusText}`);
+        }
+        const data = await response.json();
+        const value = parseInt(data.values[0][0].replace(/,/g, ''), 10);
+        updateDisplay(value);
+
+        // Reset fallback retry count on success
+        fallbackRetryCount = 0;
+        // Note: We don't schedule the next fallback call here. 
+        // The main server loop will continue trying to connect to the server.
+
+      } catch (error) {
+        console.error("Google Sheets fallback failed:", error.message);
+        fallbackRetryCount++;
+        // If even the fallback fails, we are in a bad state. 
+        // The main server loop will keep trying the server, which will in turn trigger this fallback again after a backoff.
+      }
+    }
+
+    // --- UI Initialization and Celebrations ---
+    function initializeUI() {
+        const titleElement = document.getElementById('title');
+        if (showTitle === 'true' || showTitle === '1') {
+            titleElement.style.display = 'block';
+            if (title) {
+                titleElement.textContent = title;
+                document.title = title;
+            }
+        } else {
+            titleElement.style.display = 'none';
+            if (title) {
+                document.title = title; 
+            }
+        }
     }
 
     let smallCelebrationLastFired = 0;
     const smallCelebrationDebounce = 500;
 
     function smallCelebration() {
-      if (Date.now() - smallCelebrationLastFired < smallCelebrationDebounce) {
-        return;
-      }
+      if (Date.now() - smallCelebrationLastFired < smallCelebrationDebounce) return;
       smallCelebrationLastFired = Date.now();
 
-      const defaults = {
-        spread: 360,
-        ticks: 100,
-        gravity: 0,
-        decay: 0.94,
-        startVelocity: 30,
-      };
-
+      const defaults = { spread: 360, ticks: 100, gravity: 0, decay: 0.94, startVelocity: 30 };
       function shoot() {
-        confetti("confetti", {
-          ...defaults,
-          particleCount: 30,
-          scalar: 1.2,
-          shapes: ["circle", "square"],
-          colors: ["#a864fd", "#29cdff", "#78ff44", "#ff718d", "#fdff6a"],
-        });
-
-        confetti("confetti", {
-          ...defaults,
-          particleCount: 10,
-          decay: .95,
-          scalar: 10,
-          // flat: true,
-          shapes: [
-            // "emoji",
-            "image"
-          ],
-          shapeOptions: {
-            // emoji: {
-            //   value: ["🐔", "🐣"],
-            // },
-            image: [{
-              src: "images/hen-coin.png",
-              width: 32,
-              height: 32,
-            },
-            {
-              src: "images/emoji-chicken.png",
-              width: 32,
-              height: 32,
-            }]
-          },
-        });
+        confetti("confetti", { ...defaults, particleCount: 30, scalar: 1.2, shapes: ["circle", "square"], colors: ["#a864fd", "#29cdff", "#78ff44", "#ff718d", "#fdff6a"] });
+        confetti("confetti", { ...defaults, particleCount: 10, decay: .95, scalar: 10, shapes: ["image"], shapeOptions: { image: [{ src: "images/hen-coin.png", width: 32, height: 32 }, { src: "images/emoji-chicken.png", width: 32, height: 32 }] } });
       }
-
-      setTimeout(shoot, 0);
-      setTimeout(shoot, 100);
-      setTimeout(shoot, 200);
+      setTimeout(shoot, 0); setTimeout(shoot, 100); setTimeout(shoot, 200);
     }
 
     function bigCelebration() {
       (async () => {
         let fireworksInstance = await fireworks.create(document.getElementById("fireworks"));
-        setTimeout(() => {
-          fireworksInstance.pause();
-        }, 10000);
+        setTimeout(() => fireworksInstance.pause(), 10000);
         smallCelebration();
-        
-        // Call smallCelebration every 5 seconds
-        const interval = setInterval(() => {
-          smallCelebration();
-        }, 5000);
-
-        // Clear interval after 30 seconds to stop the celebrations
+        const interval = setInterval(smallCelebration, 5000);
         setTimeout(() => {
           clearInterval(interval);
-          //Fade out the fireworks div over the course of 5 seconds
           document.getElementById("fireworks").classList.add("fade-out");
           setTimeout(() => {
             fireworksInstance.stop();
@@ -295,7 +251,10 @@
       })();
     }
 
-    fetchAndUpdate();
+    // --- Start Application ---
+    initializeUI();
+    fetchFromServer();
+
   </script>
 </body>
 </html>
