@@ -1,7 +1,7 @@
 const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
-const axios = require('axios');
+const { google } = require('googleapis');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -9,11 +9,24 @@ const CACHE_DIR = path.join(__dirname, 'cache');
 const CACHE_FILE = path.join(CACHE_DIR, 'data.json');
 
 // --- Configuration ---
-const SPREADSHEET_ID = '1TowJS-Jm8i3lxhNwd1V5noBGfY_C7b96x7Jc8NqzoDY';
-const RANGE = 'A1';
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-const GOOGLE_API_POLL_INTERVAL = process.env.GOOGLE_API_POLL_INTERVAL || 60000; // Default to 60 seconds
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const RANGE = 'Stats!A2:C';
+const GOOGLE_CREDENTIALS_JSON = process.env.GOOGLE_CREDENTIALS_JSON;
+const GOOGLE_API_POLL_INTERVAL = process.env.GOOGLE_API_POLL_INTERVAL || 60000;
 const MAX_BACKOFF = 32000; // 32 seconds
+
+const options = {
+  SPREADSHEET_ID,
+  RANGE,
+  GOOGLE_CREDENTIALS_JSON,
+  GOOGLE_API_POLL_INTERVAL,
+  MAX_BACKOFF,
+}
+
+console.log({options});
+
+let counts = {};
+let timestamp = null;
 
 let retryCount = 0;
 
@@ -21,7 +34,7 @@ let retryCount = 0;
 
 function logErrorForMonitoring(error) {
   // In a real production environment, you would integrate with a monitoring service (e.g., Sentry, Datadog).
-  console.error("MONITORING_ALERT: ", error.message);
+  console.error("MONITORING_ALERT: ", error.toString());
   if (error.response) {
     console.error("Response data: ", error.response.data);
     console.error("Response status: ", error.response.status);
@@ -46,8 +59,20 @@ fs.mkdir(CACHE_DIR, { recursive: true });
 
 app.get('/api/data', async (req, res) => {
   try {
-    const data = await fs.readFile(CACHE_FILE, 'utf8');
-    res.json(JSON.parse(data));
+    let attempts = 0;
+    const maxAttempts = 10;
+    const delay = 100; // 100ms between attempts, up to 1 second total
+
+    while (Object.keys(counts).length === 0 && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+      attempts++;
+    }
+
+    const data = {
+      total: Object.values(counts).reduce((acc, count) => acc + count, 0),
+      timestamp,
+    }
+    res.json(data);
   } catch (error) {
     if (error.code === 'ENOENT') {
       res.status(404).json({ error: 'Cache is warming up. Please try again shortly.' });
@@ -59,8 +84,12 @@ app.get('/api/data', async (req, res) => {
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
-  if (!GOOGLE_API_KEY) {
-    console.error("FATAL: GOOGLE_API_KEY environment variable is not set.");
+  if (!GOOGLE_CREDENTIALS_JSON) {
+    console.error("FATAL: GOOGLE_CREDENTIALS_JSON environment variable is not set.");
+    process.exit(1);
+  }
+   if (!SPREADSHEET_ID) {
+    console.error("FATAL: SPREADSHEET_ID environment variable is not set.");
     process.exit(1);
   }
   // Start the background polling
@@ -70,30 +99,67 @@ app.listen(port, () => {
 
 // --- Google Sheets Polling ---
 
+async function getGoogleSheetsClient() {
+  const credentials = JSON.parse(GOOGLE_CREDENTIALS_JSON);
+  const auth = new google.auth.JWT(
+    credentials.client_email,
+    null,
+    credentials.private_key,
+    ['https://www.googleapis.com/auth/spreadsheets.readonly']
+  );
+  return google.sheets({ version: 'v4', auth });
+}
+
+
 async function pollGoogleSheets() {
-  console.log('Polling Google Sheets API...');
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${GOOGLE_API_KEY}`;
+  console.log('Polling Google Sheets API with service account...');
 
   try {
-    const response = await axios.get(url);
-    const value = response.data.values ? response.data.values[0][0] : 'N/A';
-    
-    const dataToCache = {
-      value: parseInt(value.replace(/,/g, ''), 10),
-      timestamp: new Date().toISOString()
-    };
+    const sheets = await getGoogleSheetsClient();
+    const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: RANGE,
+    });
 
-    await fs.writeFile(CACHE_FILE, JSON.stringify(dataToCache, null, 2));
-    console.log('Successfully updated cache with value:', dataToCache.value);
-    
-    // Reset retry count on success
+    if (response.data.values && response.data.values.length > 0) {
+      // Destructure the first row of data (which corresponds to A2:C2)
+      const tempCounts = [changeOrgCount, googleFormCount, paperCount] = response.data.values[0].map(value => parseInt(String(value).replace(/,/g, '').trim(), 10));
+
+      // Validate that all counts are valid numbers
+      for (let i = 0; i < tempCounts.length; i++) {
+        if (typeof tempCounts[i] !== 'number' || isNaN(tempCounts[i])) {
+          throw new Error(`Invalid count value for ${i}: ${tempCounts[i]}`);
+        }
+      }
+
+      counts = {
+        changeOrgCount,
+        googleFormCount,
+        paperCount,
+      };
+      timestamp = new Date().toISOString();
+
+      const dataToCache = {
+        counts,
+        timestamp
+      };
+
+      await fs.writeFile(CACHE_FILE, JSON.stringify(dataToCache, null, 2));
+      console.log('Successfully updated cache with counts:', dataToCache.counts);
+    } else {
+      const cache = await fs.readFile(CACHE_FILE, 'utf8');
+      const parsedCache = JSON.parse(cache);
+      counts = parsedCache.counts;
+      timestamp = parsedCache.timestamp;
+      console.log("Received no values from Google Sheets. Keeping previous total.");
+    }
+
+
     retryCount = 0;
     setTimeout(pollGoogleSheets, GOOGLE_API_POLL_INTERVAL);
 
   } catch (error) {
     logErrorForMonitoring(error);
-    
-    // Increment retry count and use exponential backoff
     retryCount++;
     const retryDelay = getRetryDelay();
     console.log(`Retrying in ${retryDelay}ms...`);

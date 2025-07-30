@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo 'Error: no test specified' && exit 1",
-    "secrets:set": "flyctl secrets set GOOGLE_API_KEY=$(op read 'op://Prod/lrh-signature-server/google-api-key') --app lrh-signature-server",
+    "secrets:set": "flyctl secrets set SPREADSHEET_ID=$(op read op://Prod/lrh-signature-server/sheet-id) GOOGLE_CREDENTIALS_JSON=$(op read op://Prod/lrh-signature-server/google-credentials-json) GOOGLE_API_POLL_INTERVAL=1000 --app lrh-signature-server",
     "deploy": "flyctl deploy",
-    "dev": "GOOGLE_API_KEY=$(op read 'op://Prod/lrh-signature-server/google-api-key') node index.js"
+    "dev": "SPREADSHEET_ID=$(op read op://Prod/lrh-signature-server/sheet-id) GOOGLE_CREDENTIALS_JSON=$(op read op://Prod/lrh-signature-server/google-credentials-json) GOOGLE_API_POLL_INTERVAL=1000 node index.js"
   },
   "keywords": [],
   "author": "",
