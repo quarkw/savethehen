@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo 'Error: no test specified' && exit 1",
+    "secrets:set": "flyctl secrets set GOOGLE_API_KEY=$(op read 'op://Prod/lrh-signature-server/google-api-key') --app lrh-signature-server",
+    "deploy": "flyctl deploy",
+    "start:local": "GOOGLE_API_KEY=$(op read 'op://Prod/lrh-signature-server/google-api-key') node index.js"
   },
   "keywords": [],
   "author": "",
