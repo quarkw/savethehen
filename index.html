@@ -21,6 +21,11 @@
     }
     #title {
       font-size: 4em;
+      margin-top: 0;
+    }
+    #subtitle {
+      font-size: 1em;
+      color: #909090;
       margin: 0;
     }
     #container {
@@ -93,6 +98,7 @@
     </header>
     <div id="count">Loading...</div>
     <h1 id="title">SIGNATURES TO SAVE THE HEN</h1>
+    <h2 id="subtitle">*Count sourced from Change.org, Google Forms, and paper forms</h2>
   </div>
 
   <script>
@@ -156,12 +162,12 @@
     // --- Data Fetching ---
     async function fetchFromServer() {
       try {
-        const response = await fetch('/api/data');
+        const response = await fetch('https://lrh-signature-server.fly.dev/api/data');
         if (!response.ok) {
           throw new Error(`Server error: ${response.statusText}`);
         }
         const data = await response.json();
-        updateDisplay(data.value);
+        updateDisplay(data.total);
 
         // Reset retry count on success and poll again
         serverRetryCount = 0;
@@ -176,7 +182,11 @@
       }
     }
 
+    let googleSheetsLastQueried = 0;
     async function fetchFromGoogleSheets() {
+      if (Date.now() - googleSheetsLastQueried < fallbackPollInterval) return;
+      googleSheetsLastQueried = Date.now();
+
       console.log("Attempting to fetch directly from Google Sheets...");
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${apiKey}`;
 

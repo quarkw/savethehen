@@ -2,8 +2,11 @@ const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const { google } = require('googleapis');
+const cors = require('cors');
 
 const app = express();
+app.use(cors()); // Enable CORS for all routes
+
 const port = process.env.PORT || 3000;
 const CACHE_DIR = path.join(__dirname, 'cache');
 const CACHE_FILE = path.join(CACHE_DIR, 'data.json');

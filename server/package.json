@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo 'Error: no test specified' && exit 1",
-    "secrets:set": "flyctl secrets set SPREADSHEET_ID=$(op read op://Prod/lrh-signature-server/sheet-id) GOOGLE_CREDENTIALS_JSON=$(op read op://Prod/lrh-signature-server/google-credentials-json) GOOGLE_API_POLL_INTERVAL=1000 --app lrh-signature-server",
+    "secrets:set": "export GOOGLE_CREDENTIALS_JSON_SECRET=$(op read op://Prod/lrh-signature-server/google-credentials-json) && flyctl secrets set SPREADSHEET_ID=$(op read op://Prod/lrh-signature-server/sheet-id) GOOGLE_API_POLL_INTERVAL=1000 GOOGLE_CREDENTIALS_JSON=\"$GOOGLE_CREDENTIALS_JSON_SECRET\" --app lrh-signature-server",
     "deploy": "flyctl deploy",
     "dev": "SPREADSHEET_ID=$(op read op://Prod/lrh-signature-server/sheet-id) GOOGLE_CREDENTIALS_JSON=$(op read op://Prod/lrh-signature-server/google-credentials-json) GOOGLE_API_POLL_INTERVAL=1000 node index.js"
   },
@@ -17,6 +17,7 @@
     "@google-cloud/local-auth": "^3.0.1",
     "aigle": "^1.14.1",
     "axios": "^1.11.0",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
     "google-auth-library": "^8.0.2",
     "googleapis": "^100.0.0"
