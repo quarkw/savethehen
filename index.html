@@ -2,10 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="icon" type="image/png" href="favicon.png">
   <title>SAVE THE HEN</title>
   <style>
+    /* Mobile viewport fixes */
+    :root {
+      --vh: 1vh;
+    }
+    
     body {
       font-family: "Stint Ultra Expanded", serif;
       font-weight: 400;
@@ -13,16 +18,34 @@
       font-size: 16px;
       display: flex;
       justify-content: center;
-      height: 100vh;
+      height: 100vh; /* Fallback */
+      height: calc(var(--vh, 1vh) * 100);
       margin: 0;
       background-color: #20201F;
       color: #f5f5f5;
+      overflow: hidden; /* Prevent scrolling */
+      position: fixed;
+      width: 100%;
+      top: 0;
+      left: 0;
     }
+    
+    /* Handle safe areas for notched devices */
+    @supports (padding: max(0px)) {
+      body {
+        padding-left: max(0px, env(safe-area-inset-left));
+        padding-right: max(0px, env(safe-area-inset-right));
+        padding-top: max(0px, env(safe-area-inset-top));
+        padding-bottom: max(0px, env(safe-area-inset-bottom));
+      }
+    }
+    
     #qr-code {
       margin: clamp(1em, 5vh, 5em);
       position: fixed;
       top: 0px;
       right: 0px;
+      z-index: 10;
     }
     #qr-code img {
       opacity: 0;
@@ -59,44 +82,37 @@
       line-height: 0.8;
     }
     #title {
-      font-size: clamp(1em, 5vh, 3em);
-      margin: 0;
-      word-break: normal;
-      overflow-wrap: break-word;
-      word-wrap: break-word;
-      white-space: normal;
-      max-width: 100%;
-      width: 100%;
-      text-align: center;
+      font-size: clamp(1em, calc(min(5vh, 7vw)), 3em);
+    }
+    #title, #subtitle {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      align-items: center;
+      margin: 0;
+      padding: 0 1em;
     }
-    #title span {
+    #title span, #subtitle span {
       display: inline;
       white-space: nowrap;
-      margin-left: 0.2em;
-      margin-right: 0.2em;
     }
     #subtitle {
-      font-size: clamp(0.5em, 2vh, 2em);
+      font-size: clamp(1em, calc(min(3vh, 4vw)), 2em);
       color: #909090;
-      margin: 0;
-      word-break: normal;
     }
     #container {
       text-align: center;
       border-radius: 8px;
       background-color: transparent;
       box-shadow: none;
-      height: 100vh;
+      height: 100vh; /* Fallback */
+      height: calc(var(--vh, 1vh) * 100);
       display: flex;
       flex-direction: column;
       justify-content: space-evenly;
       align-items: center;
       width: 100%;
       max-width: 100%;
+      overflow: hidden;
     }
     #confetti {
       z-index: 1;
@@ -123,8 +139,6 @@
       height: 100%;
       z-index: -1;
     }
-    #header img {
-    }
     @keyframes value-change {
       0% { transform: scale(1); }
       50% { transform: scale(1.1); }
@@ -133,11 +147,26 @@
     .animate-value-change {
       animation: value-change 0.3s ease-in-out;
     }
-    meta[name="viewport"] {
-      content: width=device-width, initial-scale=1;
-    } 
+    
+    /* Prevent text selection on mobile */
+    * {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Allow text selection for specific elements if needed */
+    #title, #subtitle {
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
+    }
   </style>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Stint+Ultra+Expanded&display=swap" rel="stylesheet">
@@ -155,11 +184,43 @@
         <img src="images/NEW+LOGO+NO+YEAR+fnqc2.png" alt="Logo" onclick="playChickenSound(); bigCelebration(5000, 1000)">
     </div>
     <div id="count">Loading...</div>
-    <h1 id="title"><span>SIGNATURES TO</span><span>SAVE THE HEN</span></h1>
-    <h2 id="subtitle">*Count sourced from Change.org, Google Forms, and paper forms</h2>
+    <h1 id="title"><span>SIGNATURES TO</span>&nbsp;<span>SAVE THE HEN</span></h1>
+    <h2 id="subtitle"><span>*Count sourced from Change.org,</span>&nbsp;<span>Google Forms, and paper forms</span></h2>
   </div>
 
   <script>
+    // --- Mobile Viewport Handling ---
+    function setVH() {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+    
+    // Set initial viewport height
+    setVH();
+    
+    // Update viewport height on resize and orientation change
+    window.addEventListener('resize', setVH);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(setVH, 100); // Small delay to ensure orientation change is complete
+    });
+    
+    // Prevent zoom on double tap
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', function (event) {
+      const now = (new Date()).getTime();
+      if (now - lastTouchEnd <= 300) {
+        event.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, false);
+    
+    // Prevent pull-to-refresh on mobile
+    document.addEventListener('touchmove', function(e) {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+    
     // --- Configuration ---
     const SPREADSHEET_ID = '1TowJS-Jm8i3lxhNwd1V5noBGfY_C7b96x7Jc8NqzoDY';
     const RANGE = 'A1';
