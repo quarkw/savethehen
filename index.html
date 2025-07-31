@@ -13,7 +13,6 @@
       font-size: 16px;
       display: flex;
       justify-content: center;
-      align-items: center;
       height: 100vh;
       margin: 0;
       background-color: #20201F;
@@ -47,6 +46,9 @@
     }
     #confetti {
       z-index: 1;
+    }
+    #confetti-behind {
+      z-index: -1;
     }
     #fireworks {
       z-index: -2;
@@ -91,6 +93,7 @@
 </head>
 <body>
   <div id="confetti" class="tsparticles"></div>
+  <div id="confetti-behind" class="tsparticles"></div>
   <div id="fireworks" class="tsparticles"></div>
   <div id="container">
     <header>
@@ -109,16 +112,16 @@
 
     // --- State ---
     let lastValue = null;
-    let bigCelebrationDone = false;
     let serverRetryCount = 0;
     let fallbackRetryCount = 0;
 
     // --- Query Parameters ---
     const params = new URLSearchParams(window.location.search);
     const serverPollInterval = Math.max(1000, parseInt(params.get('serverPollInterval') || 5000, 10));
-    const fallbackPollInterval = Math.max(1000, parseInt(params.get('fallbackPollInterval') || 60000, 10));
+    const fallbackPollInterval = 60000;
     const apiKey = params.get('apiKey') || 'AIzaSyAq49mKWZg1W4wtsxoTvCIxyP9qkyZzji4'; // Fallback API key
-    const smallCelebrationInterval = parseInt(params.get('smallCelebrationInterval') || 100, 10);
+    const confettiInterval = parseInt(params.get('confettiInterval') || 1, 10);
+    const fireworksInterval = parseInt(params.get('fireworksInterval') || 1000, 10);
     const bigCelebrationCount = parseInt(params.get('bigCelebrationCount') || 10000, 10);
     const title = params.get('title');
     const countAffix = params.get('countAffix') || '';
@@ -135,28 +138,77 @@
       return Math.min(baseDelay + jitter, MAX_BACKOFF);
     }
 
+    let mockValue = null;
+
+    function mockUpdateValue(value){
+      mockValue = value;
+    }
+
+    function mockIncrease(value){
+      let currentCount = parseInt(document.getElementById('count').textContent.split(' ')[0], 10);
+      lastValue = currentCount;
+      mockUpdateValue(currentCount + value);
+    }
+
+    let chickenSoundLastPlayed = 0;
+    const chickenSoundDebounce = 0;
+    function playChickenSound(){
+      const shouldPlay = Date.now() - chickenSoundLastPlayed > chickenSoundDebounce;
+      if (shouldPlay) {
+        chickenSoundLastPlayed = Date.now();
+        const audio = new Audio('sound/chicken-trimmed.wav');
+        audio.play();
+      }
+    }
+
     function updateDisplay(value) {
-        if (lastValue !== value) {
-            const cellValueElement = document.getElementById('count');
+      if (mockValue) {
+        value = mockValue;
+        mockValue = null;
+      }
+      // console.log("updateDisplay", value);
+      let cachedLastValue = lastValue;
+      
+      if (cachedLastValue !== value) {
+          const cellValueElement = document.getElementById('count');
+          let timeout = 0;
+          if(cachedLastValue === null) {
             cellValueElement.textContent = value + " " + countAffix;
             cellValueElement.classList.add('animate-value-change');
             setTimeout(() => {
                 cellValueElement.classList.remove('animate-value-change');
             }, 300);
-
-            if (lastValue !== null) { // Don't celebrate on first load
-                if (smallCelebrationInterval && value / smallCelebrationInterval > lastValue / smallCelebrationInterval) {
-                    smallCelebration();
+          } else {
+            let timeout = 0;
+            for(let i = cachedLastValue + 1; i <= value; i++) {
+              let remainingTime = serverPollInterval - timeout;
+              let remaining = value - i + 1;
+              let delay = Math.random() * remainingTime / remaining;
+              timeout += delay;
+              setTimeout(() => {
+                cellValueElement.textContent = i + " " + countAffix;
+                cellValueElement.classList.add('animate-value-change');
+                setTimeout(() => {
+                    cellValueElement.classList.remove('animate-value-change');
+                }, Math.max(300, delay));
+                playChickenSound();
+                if (remaining === 1) {
+                  smallCelebration({ timeouts: [0, 100, 200] });
                 }
+                else {
+                  smallCelebration({ timeouts: [0] });
+                }
+              }, timeout);
             }
-            
-            if (!bigCelebrationDone && value >= bigCelebrationCount) {
+            // if (confettiInterval && Math.floor(value / confettiInterval) > Math.floor(lastValue / confettiInterval)) {
+            //     smallCelebration({ timeouts: [0] });
+            // }
+            if (fireworksInterval && Math.floor(value / fireworksInterval) > Math.floor(lastValue / fireworksInterval)) {
                 bigCelebration();
-                bigCelebrationDone = true;
             }
-
-            lastValue = value;
-        }
+          }
+          lastValue = value;
+      }
     }
 
     // --- Data Fetching ---
@@ -232,32 +284,39 @@
     let smallCelebrationLastFired = 0;
     const smallCelebrationDebounce = 500;
 
-    function smallCelebration() {
-      if (Date.now() - smallCelebrationLastFired < smallCelebrationDebounce) return;
+    function smallCelebration({ timeouts = [0, 100, 200], debounce = false }) {
+      const shouldDebounce = Date.now() - smallCelebrationLastFired < smallCelebrationDebounce;
+      if (debounce && shouldDebounce) return;
       smallCelebrationLastFired = Date.now();
 
       const defaults = { spread: 360, ticks: 100, gravity: 0, decay: 0.94, startVelocity: 30 };
       function shoot() {
-        confetti("confetti", { ...defaults, particleCount: 30, scalar: 1.2, shapes: ["circle", "square"], colors: ["#a864fd", "#29cdff", "#78ff44", "#ff718d", "#fdff6a"] });
-        confetti("confetti", { ...defaults, particleCount: 10, decay: .95, scalar: 10, shapes: ["image"], shapeOptions: { image: [{ src: "images/hen-coin.png", width: 32, height: 32 }, { src: "images/emoji-chicken.png", width: 32, height: 32 }] } });
+        confetti(shouldDebounce ? "confetti-behind" : "confetti", { ...defaults, particleCount: 30, scalar: 1.2, shapes: ["circle", "square"], colors: ["#a864fd", "#29cdff", "#78ff44", "#ff718d", "#fdff6a"] });
+        confetti(shouldDebounce ? "confetti-behind" : "confetti", { ...defaults, particleCount: 10, decay: .95, scalar: 10, shapes: ["image"], shapeOptions: { image: [{ src: "images/hen-coin.png", width: 32, height: 32 }, { src: "images/emoji-chicken.png", width: 32, height: 32 }] } });
       }
-      setTimeout(shoot, 0); setTimeout(shoot, 100); setTimeout(shoot, 200);
+      if (timeouts && timeouts.length > 0) {
+        timeouts.forEach(timeout => setTimeout(shoot, timeout));
+      } else {
+        shoot();
+      }
     }
 
     function bigCelebration() {
       (async () => {
+        const fireworksLength = 30000;
+        const fadeOutLength = 5000;
         let fireworksInstance = await fireworks.create(document.getElementById("fireworks"));
-        setTimeout(() => fireworksInstance.pause(), 10000);
-        smallCelebration();
-        const interval = setInterval(smallCelebration, 5000);
+        // setTimeout(() => fireworksInstance.pause(), fireworksLength - fadeOutLength);
+        smallCelebration({ timeouts: [0, 100, 200], debounce: true });
+        const interval = setInterval(() => smallCelebration({ timeouts: [0] }), 5000);
         setTimeout(() => {
           clearInterval(interval);
           document.getElementById("fireworks").classList.add("fade-out");
           setTimeout(() => {
             fireworksInstance.stop();
             document.getElementById("fireworks").classList.remove("fade-out");
-          }, 5000);
-        }, 30000);
+          }, fadeOutLength);
+        }, fireworksLength);
       })();
     }
 
