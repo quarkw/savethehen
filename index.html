@@ -181,7 +181,7 @@
   <div id="container">
     <div id="qr-code" onclick="toggleQRCode()"><img src="images/qr-code.png" alt="QR Code"></div>
     <div id="logo">
-        <img src="images/NEW+LOGO+NO+YEAR+fnqc2.png" alt="Logo" onclick="playChickenSound(); bigCelebration(5000, 2000)">
+        <img src="images/NEW+LOGO+NO+YEAR+fnqc2.png" alt="Logo" onclick="bigCelebration(5000, 2000)">
     </div>
     <div id="count">Loading...</div>
     <h1 id="title"><span>SIGNATURES TO</span>&nbsp;<span>SAVE THE HEN</span></h1>
@@ -414,6 +414,7 @@
       (async () => {
         let fireworksInstance = await fireworks.create(document.getElementById("fireworks"));
         smallCelebration({ timeouts: [0, 100, 200], debounce: true });
+        playChickenSound();
         const interval = setInterval(() => smallCelebration({ timeouts: [0] }), 5000);
         setTimeout(() => {
           clearInterval(interval);
