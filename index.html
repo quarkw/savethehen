@@ -162,8 +162,8 @@
     const serverPollInterval = Math.max(1000, parseInt(params.get('serverPollInterval') || 5000, 10));
     const fallbackPollInterval = 60000;
     const apiKey = params.get('apiKey') || 'AIzaSyAq49mKWZg1W4wtsxoTvCIxyP9qkyZzji4'; // Fallback API key
-    const confettiInterval = parseInt(params.get('confettiInterval') || 1, 10);
     const fireworksInterval = parseInt(params.get('fireworksInterval') || 1000, 10);
+    const disableChickenSound = params.get('disableChickenSound')?.toLowerCase() === 'true' || params.get('disableChickenSound') === '1';
     const milestones = new Set(params.get('milestones')?.split(',').map(Number) || []);
     const bigCelebrationCount = parseInt(params.get('bigCelebrationCount') || 10000, 10);
     const title = params.get('title');
@@ -201,6 +201,7 @@
     let chickenSoundLastPlayed = 0;
     const chickenSoundDebounce = 0;
     function playChickenSound(){
+      if(disableChickenSound) return;
       if(Date.now() - chickenSoundLastPlayed < 30) return;
       const shouldPlay = Date.now() - chickenSoundLastPlayed > chickenSoundDebounce;
       if (shouldPlay) {
