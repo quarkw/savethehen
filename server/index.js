@@ -29,6 +29,7 @@ const options = {
 console.log({options});
 
 let counts = {};
+let total = 0;
 let timestamp = null;
 
 let retryCount = 0;
@@ -72,7 +73,7 @@ app.get('/api/data', async (req, res) => {
     }
 
     const data = {
-      total: Object.values(counts).reduce((acc, count) => acc + count, 0),
+      total,
       timestamp,
     }
     res.json(data);
@@ -141,18 +142,21 @@ async function pollGoogleSheets() {
         paperCount,
       };
       timestamp = new Date().toISOString();
+      total = Object.values(counts).reduce((acc, count) => acc + count, 0);
 
       const dataToCache = {
         counts,
+        total,
         timestamp
       };
 
       await fs.writeFile(CACHE_FILE, JSON.stringify(dataToCache, null, 2));
-      console.log('Successfully updated cache with counts:', dataToCache.counts);
+      console.log('Successfully updated cache with counts:', dataToCache.counts, "total:", dataToCache.total);
     } else {
       const cache = await fs.readFile(CACHE_FILE, 'utf8');
       const parsedCache = JSON.parse(cache);
       counts = parsedCache.counts;
+      total = parsedCache.total;
       timestamp = parsedCache.timestamp;
       console.log("Received no values from Google Sheets. Keeping previous total.");
     }
