@@ -124,7 +124,7 @@
       z-index: -2;
     }
     .fade-out {
-      animation: fade-out 5s ease-in-out;
+      animation: fade-out var(--fadeout-duration, 5s) ease-in-out;
     }
     @keyframes fade-out {
       0% { opacity: 1; }
@@ -181,7 +181,7 @@
   <div id="container">
     <div id="qr-code" onclick="toggleQRCode()"><img src="images/qr-code.png" alt="QR Code"></div>
     <div id="logo">
-        <img src="images/NEW+LOGO+NO+YEAR+fnqc2.png" alt="Logo" onclick="playChickenSound(); bigCelebration(5000, 1000)">
+        <img src="images/NEW+LOGO+NO+YEAR+fnqc2.png" alt="Logo" onclick="playChickenSound(); bigCelebration(5000, 2000)">
     </div>
     <div id="count">Loading...</div>
     <h1 id="title"><span>SIGNATURES TO</span>&nbsp;<span>SAVE THE HEN</span></h1>
@@ -243,6 +243,8 @@
     const title = params.get('title');
     const countAffix = params.get('countAffix') || '';
     const showTitle = params.get('showTitle') || 'true';
+    const fireworksFadeoutDuration = parseInt(params.get('fireworksFadeoutDuration') || 5000, 10);
+    const fireworksDuration = parseInt(params.get('fireworksDuration') || 30000, 10);
 
     // --- Helper Functions ---
     function getRandomJitter(maxMs = 1000) {
@@ -407,13 +409,16 @@
       }
     }
 
-    function bigCelebration(fireworksLength = 30000, fadeOutLength = 5000) {
+    function bigCelebration(fireworksLength = fireworksDuration, fadeOutLength = fireworksFadeoutDuration) {
+      if(fadeOutLength > fireworksLength / 2) fadeOutLength = fireworksLength / 2;
       (async () => {
         let fireworksInstance = await fireworks.create(document.getElementById("fireworks"));
         smallCelebration({ timeouts: [0, 100, 200], debounce: true });
         const interval = setInterval(() => smallCelebration({ timeouts: [0] }), 5000);
         setTimeout(() => {
           clearInterval(interval);
+          // Set CSS custom property for fadeout duration
+          document.documentElement.style.setProperty('--fadeout-duration', `${fadeOutLength}ms`);
           document.getElementById("fireworks").classList.add("fade-out");
           setTimeout(() => {
             fireworksInstance.stop();
