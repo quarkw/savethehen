@@ -18,10 +18,38 @@
       background-color: #20201F;
       color: #f5f5f5;
     }
-    #header img {
-      border-radius: 50%;
-      max-width: clamp(150px, 40vh, 400px);
+    #qr-code {
+      margin: clamp(1em, 5vh, 5em);
+      position: fixed;
+      top: 0px;
+      right: 0px;
+    }
+    #qr-code img {
+      opacity: 0;
+      max-width: clamp(100px, 30vw, 25vw);
       height: auto;
+    }
+    #qr-code.active img {
+      opacity: 1;
+    }
+    #qr-code.active img:hover {
+      opacity: 0.2;
+      border: 5px solid red;
+    }
+    #qr-code img:hover {
+      opacity: 0.8;
+      border: 5px solid green;
+      margin-top: -5px;
+      margin-right: -5px;
+      cursor: pointer;
+    }
+    #logo img {
+      border-radius: 50%;
+      max-width: clamp(150px, 40vw, 400px);
+      height: auto;
+    }
+    #logo img:hover {
+      cursor: pointer;
     }
     #count {
       font-family: "Smokum", serif;
@@ -60,9 +88,6 @@
       flex-direction: column;
       justify-content: space-evenly;
       align-items: center;
-    }
-    #header img:hover {
-      cursor: pointer;
     }
     #confetti {
       z-index: 1;
@@ -112,8 +137,9 @@
   <div id="confetti-behind" class="tsparticles"></div>
   <div id="fireworks" class="tsparticles"></div>
   <div id="container">
-    <div id="header">
-        <img src="images/NEW+LOGO+NO+YEAR+fnqc2.png" alt="Logo" onclick="playChickenSound(); bigCelebration()">
+    <div id="qr-code" onclick="toggleQRCode()"><img src="images/qr-code.png" alt="QR Code"></div>
+    <div id="logo">
+        <img src="images/NEW+LOGO+NO+YEAR+fnqc2.png" alt="Logo" onclick="playChickenSound(); bigCelebration(5000, 1000)">
     </div>
     <div id="count">Loading...</div>
     <h1 id="title"><span>SIGNATURES TO</span><span>SAVE THE HEN</span></h1>
@@ -138,6 +164,7 @@
     const apiKey = params.get('apiKey') || 'AIzaSyAq49mKWZg1W4wtsxoTvCIxyP9qkyZzji4'; // Fallback API key
     const confettiInterval = parseInt(params.get('confettiInterval') || 1, 10);
     const fireworksInterval = parseInt(params.get('fireworksInterval') || 1000, 10);
+    const milestones = new Set(params.get('milestones')?.split(',').map(Number) || []);
     const bigCelebrationCount = parseInt(params.get('bigCelebrationCount') || 10000, 10);
     const title = params.get('title');
     const countAffix = params.get('countAffix') || '';
@@ -160,6 +187,11 @@
       mockValue = value;
     }
 
+    function toggleQRCode() {
+      const qrCode = document.getElementById('qr-code');
+      qrCode.classList.toggle('active');
+    }
+
     function mockIncrease(value){
       let currentCount = parseInt(document.getElementById('count').textContent.split(' ')[0], 10);
       lastValue = currentCount;
@@ -169,6 +201,7 @@
     let chickenSoundLastPlayed = 0;
     const chickenSoundDebounce = 0;
     function playChickenSound(){
+      if(Date.now() - chickenSoundLastPlayed < 30) return;
       const shouldPlay = Date.now() - chickenSoundLastPlayed > chickenSoundDebounce;
       if (shouldPlay) {
         chickenSoundLastPlayed = Date.now();
@@ -214,13 +247,10 @@
                 else {
                   smallCelebration({ timeouts: [0] });
                 }
+                if(fireworksInterval && i % fireworksInterval === 0 || milestones.has(i)) {
+                  bigCelebration();
+                }
               }, timeout);
-            }
-            // if (confettiInterval && Math.floor(value / confettiInterval) > Math.floor(lastValue / confettiInterval)) {
-            //     smallCelebration({ timeouts: [0] });
-            // }
-            if (fireworksInterval && Math.floor(value / fireworksInterval) > Math.floor(lastValue / fireworksInterval)) {
-                bigCelebration();
             }
           }
           lastValue = value;
@@ -286,6 +316,7 @@
 
     function smallCelebration({ timeouts = [0, 100, 200], debounce = false }) {
       const shouldDebounce = Date.now() - smallCelebrationLastFired < smallCelebrationDebounce;
+      if(Date.now() - smallCelebrationLastFired < 30) return;
       if (debounce && shouldDebounce) return;
       smallCelebrationLastFired = Date.now();
 
@@ -301,12 +332,9 @@
       }
     }
 
-    function bigCelebration() {
+    function bigCelebration(fireworksLength = 30000, fadeOutLength = 5000) {
       (async () => {
-        const fireworksLength = 30000;
-        const fadeOutLength = 5000;
         let fireworksInstance = await fireworks.create(document.getElementById("fireworks"));
-        // setTimeout(() => fireworksInstance.pause(), fireworksLength - fadeOutLength);
         smallCelebration({ timeouts: [0, 100, 200], debounce: true });
         const interval = setInterval(() => smallCelebration({ timeouts: [0] }), 5000);
         setTimeout(() => {
